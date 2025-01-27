@@ -747,7 +747,7 @@ EOF
     local confirmation_count=$(echo "$response" | jq -r ".results[$idx].confirmations | length // \"0\"")
 
     # Extract signatures from confirmations array and concatenate them
-    local signatures=$(echo "$response" | jq -r ".results[$idx].confirmations[].signature" | paste -sd '' -)
+    local signatures=$(echo "$response" | jq -r '.results[0].confirmations | reverse | .[].signature' | sed '1!s/0x//' | tr -d '\n')
 
     # If signatures is empty, use 0x
     if [[ -z "$signatures" ]]; then
