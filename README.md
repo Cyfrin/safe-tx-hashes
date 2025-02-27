@@ -119,11 +119,27 @@ brew install bash
 
 3. Add the new shell to the list of allowed shells:
 
+**Apple Silicon processors**
+
+```console
+sudo bash -c 'echo /opt/homebrew/bin/bash >> /etc/shells'
+```
+
+**Intel processors**
+
 ```console
 sudo bash -c 'echo /usr/local/bin/bash >> /etc/shells'
 ```
 
 4. Optionally, make it your default shell:
+
+**Apple Silicon processors**
+
+```console
+chsh -s /opt/homebrew/bin/bash
+```
+
+**Intel processors**
 
 ```console
 chsh -s /usr/local/bin/bash
