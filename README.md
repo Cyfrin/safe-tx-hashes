@@ -39,6 +39,8 @@ This Bash [script](./safe_hashes.sh) calculates the Safe transaction hashes by r
 - [Usage - Offline](#usage---offline)
   - [Safe Transaction Hashes](#safe-transaction-hashes)
   - [Safe Message Hashes](#safe-message-hashes)
+  - [Rootstock-Specific Notes](#rootstock-specific-notes)
+  - [Error Messages](#error-messages)
 - [Trust Assumptions](#trust-assumptions)
 - [Testing](#testing)
 - [Community-Maintained User Interface Implementations](#community-maintained-user-interface-implementations)
@@ -69,6 +71,8 @@ This Bash [script](./safe_hashes.sh) calculates the Safe transaction hashes by r
 - Optimism (identifier: `optimism`, chain ID: `10`)
 - Polygon (identifier: `polygon`, chain ID: `137`)
 - Polygon zkEVM (identifier: `polygon-zkevm`, chain ID: `1101`)
+- Rootstock (identifier: `rootstock`, chain ID: `30`)
+- Rootstock Testnet (identifier: `rootstock-testnet`, chain ID: `31`)
 - Scroll (identifier: `scroll`, chain ID: `534352`)
 - Sepolia (identifier: `sepolia`, chain ID: `11155111`)
 - World Chain (identifier: `worldchain`, chain ID: `480`)
@@ -422,6 +426,22 @@ Domain hash: 0x611379C19940CAEE095CDB12BEBE6A9FA9ABB74CDB1FBD7377C49A1F198DC24F
 Message hash: 0xA5D2F507A16279357446768DB4BD47A03BCA0B6ACAC4632A4C2C96AF20D6F6E5
 Safe message hash: 0x1866b559f56261ada63528391b93a1fe8e2e33baf7cace94fc6b42202d16ea08
 ```
+
+
+## Rootstock-Specific Notes
+
+- Rootstock networks use a different API structure than other networks
+- The `--untrusted` flag is not supported on Rootstock networks
+- Addresses are handled case-insensitively on Rootstock networks
+- API endpoints:`https://gateway.safe.rootstock.io`
+
+## Error Messages
+
+The script will display clear error messages for common issues:
+- Invalid address format
+- Unsupported flags for specific networks
+- Missing required parameters
+- Network-specific validation errors
 
 > [!NOTE]
 > If you do not pass `--offline` for this, the script will attempt to get the correct Safe version from the API. If you want this to be 100% offline, be sure to pass the `--offline` flag!

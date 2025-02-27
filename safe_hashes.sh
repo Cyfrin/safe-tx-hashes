@@ -96,6 +96,8 @@ declare -A -r API_URLS=(
     ["optimism"]="https://safe-transaction-optimism.safe.global"
     ["polygon"]="https://safe-transaction-polygon.safe.global"
     ["polygon-zkevm"]="https://safe-transaction-zkevm.safe.global"
+    ["rootstock"]="https://gateway.safe.rootstock.io"
+    ["rootstock-testnet"]="https://gateway.safe.rootstock.io"
     ["scroll"]="https://safe-transaction-scroll.safe.global"
     ["sepolia"]="https://safe-transaction-sepolia.safe.global"
     ["worldchain"]="https://safe-transaction-worldchain.safe.global"
@@ -121,6 +123,8 @@ declare -A -r CHAIN_IDS=(
     ["optimism"]="10"
     ["polygon"]="137"
     ["polygon-zkevm"]="1101"
+    ["rootstock"]="30"
+    ["rootstock-testnet"]="31"
     ["scroll"]="534352"
     ["sepolia"]="11155111"
     ["worldchain"]="480"
@@ -638,7 +642,11 @@ calculate_safe_hashes() {
     # Only get api_url and version in online mode or for message files
     if [[ "$offline" != "true" || -n "$message_file" ]]; then
         api_url=$(get_api_url "$network")
-        version=$(curl -sf "${api_url}/api/v1/safes/${address}/" | jq -r ".version // \"0.0.0\"")
+        if [[ "$network" == "rootstock" || "$network" == "rootstock-testnet" ]]; then
+            version=$(curl -sf "${api_url}/v1/chains/${chain_id}/safes/${address}" | jq -r ".version // \"0.0.0\"")
+        else
+            version=$(curl -sf "${api_url}/api/v1/safes/${address}/" | jq -r ".version // \"0.0.0\"")
+        fi
     fi
 
     # Handle message file mode first
@@ -673,9 +681,17 @@ handle_online_mode() {
     local untrusted="$7"
     local print_mst_calldata="$8"
 
-    local endpoint="${api_url}/api/v1/safes/${address}/multisig-transactions/?nonce=${nonce}"
-
+    local endpoint=""
+    if [[ "$network" == "rootstock" || "$network" == "rootstock-testnet" ]]; then
+        endpoint="${api_url}/v1/chains/${chain_id}/safes/${address}/multisig-transactions?nonce=${nonce}"
+    else
+        endpoint="${api_url}/api/v1/safes/${address}/multisig-transactions/?nonce=${nonce}"
+    fi
     if [[ "$untrusted" == "true" ]]; then
+        if [[ "$network" == "rootstock" || "$network" == "rootstock-testnet" ]]; then
+            echo "$(tput setaf 1)Error: The --untrusted flag is not supported by Rootstock networks$(tput sgr0)" >&2
+            exit 1
+        fi
         endpoint="${endpoint}&trusted=false"
     fi
 
@@ -688,7 +704,12 @@ handle_online_mode() {
     # For debugging purposes:
     # echo "Endpoint: $endpoint"
 
-    local count=$(echo "$response" | jq -r ".count // \"0\"")
+    local count=0
+    if [[ "$network" == "rootstock" || "$network" == "rootstock-testnet" ]]; then
+        count=$(echo "$response" | jq -r ".results | length // 0")
+    else
+        count=$(echo "$response" | jq -r ".count // \"0\"")
+    fi
     local idx=0
 
     # Inform the user that no transactions are available for the specified nonce.
@@ -732,22 +753,59 @@ EOF
         done
     fi
 
-    local to=$(echo "$response" | jq -r ".results[$idx].to // \"0x0000000000000000000000000000000000000000\"")
-    local value=$(echo "$response" | jq -r ".results[$idx].value // \"0\"")
-    local data=$(echo "$response" | jq -r ".results[$idx].data // \"0x\"")
-    local operation=$(echo "$response" | jq -r ".results[$idx].operation // \"0\"")
-    local safe_tx_gas=$(echo "$response" | jq -r ".results[$idx].safeTxGas // \"0\"")
-    local base_gas=$(echo "$response" | jq -r ".results[$idx].baseGas // \"0\"")
-    local gas_price=$(echo "$response" | jq -r ".results[$idx].gasPrice // \"0\"")
-    local gas_token=$(echo "$response" | jq -r ".results[$idx].gasToken // \"0x0000000000000000000000000000000000000000\"")
-    local refund_receiver=$(echo "$response" | jq -r ".results[$idx].refundReceiver // \"0x0000000000000000000000000000000000000000\"")
-    local nonce=$(echo "$response" | jq -r ".results[$idx].nonce // \"0\"")
-    local data_decoded=$(echo "$response" | jq -r ".results[$idx].dataDecoded // \"0x\"")
-    local confirmations_required=$(echo "$response" | jq -r ".results[$idx].confirmationsRequired // \"0\"")
-    local confirmation_count=$(echo "$response" | jq -r ".results[$idx].confirmations | length // \"0\"")
-
-    # Extract signatures from confirmations array and concatenate them
-    local signatures=$(echo "$response" | jq -r '.results[0].confirmations | reverse | .[].signature' | sed '1!s/0x//' | tr -d '\n')
+    local to="" value="" data="" operation="" safe_tx_gas="" base_gas="" gas_price="" gas_token="" refund_receiver="" data_decoded="{}"
+    
+    if [[ "$network" == "rootstock" || "$network" == "rootstock-testnet" ]]; then
+        # Extract transaction ID from the first response
+        local tx_id=$(echo "$response" | jq -r ".results[${idx}].transaction.id")
+        
+        # Fetch detailed transaction information
+        local detailed_response=$(curl -sf "${api_url}/v1/chains/${chain_id}/transactions/${tx_id}")
+        
+        # Extract from Rootstock's detailed structure
+        local tx_data=$(echo "$detailed_response" | jq -r ".txData")
+        local detailed_execution_info=$(echo "$detailed_response" | jq -r ".detailedExecutionInfo")
+        
+        # Basic transaction details from txData
+        to=$(echo "$tx_data" | jq -r ".to.value // \"0x0000000000000000000000000000000000000000\"")
+        value=$(echo "$tx_data" | jq -r ".value // \"0\"")
+        data=$(echo "$tx_data" | jq -r ".hexData // \"0x\"")
+        operation=$(echo "$tx_data" | jq -r ".operation // \"0\"")
+        data_decoded=$(echo "$tx_data" | jq -r ".dataDecoded // \"{}\"")
+        
+        # Execution details from detailedExecutionInfo
+        safe_tx_gas=$(echo "$detailed_execution_info" | jq -r ".safeTxGas // \"0\"")
+        base_gas=$(echo "$detailed_execution_info" | jq -r ".baseGas // \"0\"")
+        gas_price=$(echo "$detailed_execution_info" | jq -r ".gasPrice // \"0\"")
+        gas_token=$(echo "$detailed_execution_info" | jq -r ".gasToken // \"0x0000000000000000000000000000000000000000\"")
+        refund_receiver=$(echo "$detailed_execution_info" | jq -r ".refundReceiver.value // \"0x0000000000000000000000000000000000000000\"")
+        nonce=$(echo "$detailed_execution_info" | jq -r ".nonce // \"0\"")
+        
+        # Get confirmations info
+        confirmations_required=$(echo "$detailed_execution_info" | jq -r ".confirmationsRequired // \"0\"")
+        confirmation_count=$(echo "$detailed_execution_info" | jq -r ".confirmations | length // \"0\"")
+        
+        # Extract signatures - note the different path for Rootstock
+        signatures=$(echo "$detailed_response" | jq -r '.detailedExecutionInfo.confirmations[].signature' | sed '1!s/0x//' | tr -d '\n')
+    else
+        # Original extraction for other networks
+        to=$(echo "$response" | jq -r ".results[$idx].to // \"0x0000000000000000000000000000000000000000\"")
+        value=$(echo "$response" | jq -r ".results[$idx].value // \"0\"")
+        data=$(echo "$response" | jq -r ".results[$idx].data // \"0x\"")
+        operation=$(echo "$response" | jq -r ".results[$idx].operation // \"0\"")
+        safe_tx_gas=$(echo "$response" | jq -r ".results[$idx].safeTxGas // \"0\"")
+        base_gas=$(echo "$response" | jq -r ".results[$idx].baseGas // \"0\"")
+        gas_price=$(echo "$response" | jq -r ".results[$idx].gasPrice // \"0\"")
+        gas_token=$(echo "$response" | jq -r ".results[$idx].gasToken // \"0x0000000000000000000000000000000000000000\"")
+        refund_receiver=$(echo "$response" | jq -r ".results[$idx].refundReceiver // \"0x0000000000000000000000000000000000000000\"")
+        nonce=$(echo "$response" | jq -r ".results[$idx].nonce // \"0\"")
+        data_decoded=$(echo "$response" | jq -r ".results[$idx].dataDecoded // \"0x\"")
+        confirmations_required=$(echo "$response" | jq -r ".results[$idx].confirmationsRequired // \"0\"")
+        confirmation_count=$(echo "$response" | jq -r ".results[$idx].confirmations | length // \"0\"")
+        
+        # Extract signatures
+        signatures=$(echo "$response" | jq -r '.results[0].confirmations | reverse | .[].signature' | sed '1!s/0x//' | tr -d '\n')
+    fi
 
     # If signatures is empty, use 0x
     if [[ -z "$signatures" ]]; then
