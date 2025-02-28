@@ -638,7 +638,23 @@ calculate_safe_hashes() {
     # Only get api_url and version in online mode or for message files
     if [[ "$offline" != "true" || -n "$message_file" ]]; then
         api_url=$(get_api_url "$network")
-        version=$(curl -sf "${api_url}/api/v1/safes/${address}/" | jq -r ".version // \"0.0.0\"")
+
+        # Fetch the safe info and handle potential errors
+        safe_info_response=$(curl -s -w "\n%{http_code}" "${api_url}/api/v1/safes/${address}/")
+        response_body=$(echo "$safe_info_response" | sed '$d')
+        status_code=$(echo "$safe_info_response" | tail -n1)
+
+        if [[ "$status_code" == "404" ]]; then
+            echo -e "${RED}Error: 404 returned from Safe API. Address ${address} on network ${network}${RESET}" >&2
+            exit 1
+        fi
+
+        if [[ -z "$response_body" ]]; then
+            echo -e "${RED}Error: Empty response from Safe API${RESET}" >&2
+            exit 1
+        fi
+
+        version=$(echo "$response_body" | jq -r ".version // \"0.0.0\"")
     fi
 
     # Handle message file mode first
