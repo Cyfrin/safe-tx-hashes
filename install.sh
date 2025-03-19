@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-echo "Installing safe_hashes..."
+echo "Installing safe-hash..."
 
 BASE_DIR="${XDG_CONFIG_HOME:-$HOME}"
 CYFRIN_DIR="${CYFRIN_DIR:-"$BASE_DIR/.cyfrin"}"
 CYFRIN_BIN_DIR="$CYFRIN_DIR/bin"
 
 SAFE_HASHES_URL="https://raw.githubusercontent.com/cyfrin/safe-tx-hashes/main/safe_hashes.sh"
-BIN_PATH="$CYFRIN_BIN_DIR/safe_hashes"
+BIN_PATH="$CYFRIN_BIN_DIR/safe-hash"
 
 # Create the .cyfrin bin directory and binary if it doesn't exist.
 mkdir -p "$CYFRIN_BIN_DIR"
@@ -66,9 +66,9 @@ if [[ ${#MISSING_TOOLS[@]} -ne 0 ]]; then
     for tool in "${MISSING_TOOLS[@]}"; do
         echo "  - $tool"
     done
-    echo -e "\nPlease install them to use safe_hashes properly."
+    echo -e "\nPlease install them to use safe-hash properly."
 fi
 
-echo -e "\nDetected your preferred shell is ${PREF_SHELL} and added safe_hashes to PATH."
-echo "Run 'source ${PROFILE}' or start a new terminal session to use safe_hashes."
-echo -e "\nThen you can run 'safe_hashes --help' to see available options."
+echo -e "\nDetected your preferred shell is ${PREF_SHELL} and added safe-hash to PATH."
+echo "Run 'source ${PROFILE}' or start a new terminal session to use safe-hash."
+echo -e "\nThen you can run 'safe-hash --help' to see available options."

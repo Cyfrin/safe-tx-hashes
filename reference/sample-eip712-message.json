@@ -1,0 +1,38 @@
+{
+    "domain": {
+        "name": "SecurityCouncil",
+        "version": "1",
+        "chainId": 1,
+        "verifyingContract": "0x66e4431266dc7e04e7d8b7fe9d2181253df7f410"
+    },
+    "message": {
+        "id": "0x5ebd899d036aae29b12babe196b11380d8304e98ac86390ac18a56ff51ada9bd"
+    },
+    "primaryType": "ApproveUpgradeSecurityCouncil",
+    "types": {
+        "EIP712Domain": [
+            {
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "name": "version",
+                "type": "string"
+            },
+            {
+                "name": "chainId",
+                "type": "uint256"
+            },
+            {
+                "name": "verifyingContract",
+                "type": "address"
+            }
+        ],
+        "ApproveUpgradeSecurityCouncil": [
+            {
+                "name": "id",
+                "type": "bytes32"
+            }
+        ]
+    }
+}
