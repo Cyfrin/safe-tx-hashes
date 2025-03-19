@@ -64,8 +64,10 @@ declare -A -r API_URLS=(
     ["xlayer"]="https://safe-transaction-xlayer.safe.global"
     ["zksync"]="https://safe-transaction-zksync.safe.global"
 )
+
 # MultiSend contract addresses by network
-declare -A -r MULTISEND_ADDRESSES=(
+# https://github.com/safe-global/safe-deployments/blob/4e25b09f62a4acec92b4ebe6b8ae496b3852d440/src/assets/v1.4.1/multi_send_call_only.json
+declare -A -r MULTISEND_CALL_ONLY_ADDRESSES_1_4_1=(
     ["arbitrum"]="0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
     ["aurora"]="0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
     ["avalanche"]="0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
@@ -86,8 +88,34 @@ declare -A -r MULTISEND_ADDRESSES=(
     ["sepolia"]="0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
     ["worldchain"]="0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
     ["xlayer"]="0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
-    ["zksync"]="0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+    # ["zksync"]="0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
 )
+
+# https://github.com/safe-global/safe-deployments/blob/4e25b09f62a4acec92b4ebe6b8ae496b3852d440/src/assets/v1.3.0/multi_send_call_only.json
+declare -A -r MULTISEND_CALL_ONLY_ADDRESSES_1_3_0=(
+    ["arbitrum"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["aurora"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["avalanche"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["base"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["base-sepolia"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["blast"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["bsc"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["celo"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["ethereum"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["gnosis"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["gnosis-chiado"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["linea"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["mantle"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["optimism"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["polygon"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["polygon-zkevm"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["scroll"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["sepolia"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["worldchain"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["xlayer"]="0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+    ["zksync"]="0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F"
+)
+
 # Define the chain IDs of the supported networks from the Safe transaction service.
 declare -A -r CHAIN_IDS=(
     ["arbitrum"]="42161"
@@ -366,6 +394,32 @@ handle_tx_command() {
     local chain_id=$(get_chain_id "$network")
     local api_url=""
 
+    # Need to do this before the JSON processing
+    if [[ "$offline" != true ]]; then
+    # Get chain ID and API URL for the specified network
+        local chain_id="$(get_chain_id "$network")"
+        read api_url response_body < <(get_api_url_and_response "$network" "$address")
+    
+        # Check if we're using the client API and need version from the command line
+        if [[ "$api_url" == "$SAFE_CLIENT_API_URL" ]]; then
+            if [[ -z "$version" ]]; then
+                echo -e "${RED}Error: When using the client API, you must specify the Safe version. For example, use --safe-version \"1.3.0\"${RESET}" >&2
+                exit 1
+            fi
+        else
+            # Warn if a version was already set and will be overridden
+            if [[ -n "$version" ]]; then
+                echo -e "${YELLOW}Warning: Overriding previously set version with value from API response${RESET}" >&2
+            fi
+            # Extract version from the API response (defaults to "0.0.0" if not present)
+            version=$(echo "$response_body" | jq -r '.version // "0.0.0"')
+        fi
+        if [[ -z "$version" || "$version" == "0.0.0" ]]; then
+            version="$DEFAULT_OFFLINE_SAFE_VERSION"
+            echo -e "${YELLOW}Warning: Using default version $DEFAULT_OFFLINE_SAFE_VERSION${RESET}" >&2
+        fi
+    fi
+
     # Process JSON file if provided
     if [[ -n "$json_file" ]]; then
         if [[ ! -f "$json_file" ]]; then
@@ -375,7 +429,7 @@ handle_tx_command() {
         offline=true
     
         # should get offline_to, offline_value, offline_data, and offline_operation
-        IFS=':' read -r json_to json_value json_data json_operation <<< "$(process_json_transactions "$json_file")"
+        IFS=':' read -r json_to json_value json_data json_operation <<< "$(process_json_transactions "$json_file" "$version")"
 
         if [[ "$to_set" = false ]]; then
             offline_to="$json_to"
@@ -411,29 +465,6 @@ handle_tx_command() {
             "$offline_safe_tx_gas" "$offline_base_gas" "$offline_gas_price" \
             "$offline_gas_token" "$offline_refund_receiver"
     else
-        # Get chain ID and API URL for the specified network
-        local chain_id="$(get_chain_id "$network")"
-        read api_url response_body < <(get_api_url_and_response "$network" "$address")
-    
-        # Check if we're using the client API and need version from the command line
-        if [[ "$api_url" == "$SAFE_CLIENT_API_URL" ]]; then
-            if [[ -z "$version" ]]; then
-                echo -e "${RED}Error: When using the client API, you must specify the Safe version. For example, use --safe-version \"1.3.0\"${RESET}" >&2
-                exit 1
-            fi
-        else
-            # Warn if a version was already set and will be overridden
-            if [[ -n "$version" ]]; then
-                echo -e "${YELLOW}Warning: Overriding previously set version with value from API response${RESET}" >&2
-            fi
-            # Extract version from the API response (defaults to "0.0.0" if not present)
-            version=$(echo "$response_body" | jq -r '.version // "0.0.0"')
-        fi
-        if [[ -z "$version" || "$version" == "0.0.0" ]]; then
-            version="$DEFAULT_OFFLINE_SAFE_VERSION"
-            echo -e "${YELLOW}Warning: Using default version $DEFAULT_OFFLINE_SAFE_VERSION${RESET}" >&2
-        fi
-        
         # Call online handler
         handle_tx_online_mode "$network" "$chain_id" "$api_url" "$version" \
             "$address" "$nonce" "$untrusted" "$print_mst_calldata"
@@ -443,6 +474,7 @@ handle_tx_command() {
 # Process a batch of transactions using MultiSend
 process_json_transactions() {
     local json_file="$1"
+    local safe_version="$2"
     
     # Get the total number of transactions in the batch
     local tx_count=$(jq '.transactions | length' "$json_file")
@@ -459,16 +491,24 @@ process_json_transactions() {
         process_transaction_from_batch "$json_file" 0
     else
         # Process as a batch using MultiSend
-        process_batch_transactions "$json_file"
+        process_batch_transactions "$json_file" "$safe_version"
     fi
 }
 
 # Process a batch of transactions using MultiSend
 process_batch_transactions() {
     local json_file="$1"
+    local safe_version="$2"
     
     local tx_count=$(jq '.transactions | length' "$json_file")
-    local multisend_address="${MULTISEND_ADDRESSES[$network]}"
+
+    local multisend_address
+    if [[ $safe_version =~ ^1\.3\. ]]; then
+        multisend_address="${MULTISEND_CALL_ONLY_ADDRESSES_1_3_0[$network]}"
+    else
+        multisend_address="${MULTISEND_CALL_ONLY_ADDRESSES_1_4_1[$network]}"
+    fi
+
     local batch_operation="1"
     local total_value=0
 
@@ -585,63 +625,63 @@ usage() {
     local exit_code=${1:-1}  
 
     cat <<EOF
-Usage: ${SCRIPT_NAME} [--help] [--version] [--list-networks] <command> [OPTIONS]
+Usage: ${SCRIPT_NAME} [--help] [--version] <command> [OPTIONS]
 
 Commands:
-  tx    Calculate transaction hashes
-  msg   Calculate message hashes
+  tx               Calculate transaction hashes
+  msg              Calculate message hashes
+  list-networks    List all supported networks and their chain IDs
   
 Global Options:
   --version             Display the script version
   --help                Display this help message
-  --list-networks       List all supported networks and their chain IDs
   --safe-version        Safe version (default: 1.3.0)
 
 Transaction Hash Commands:
-  ${SCRIPT_NAME} tx --network <network> --address <address> --nonce <nonce> [OPTIONS]
-  ${SCRIPT_NAME} tx --offline --network <network> --address <address> --nonce <nonce> [OPTIONS]
+  ${SCRIPT_NAME} tx --network <network> --safe-address <address> --nonce <nonce> [OPTIONS]
+  ${SCRIPT_NAME} tx --offline --network <network> --safe-address <address> --nonce <nonce> [OPTIONS]
 
 Transaction Hash Options:
-  --network <network>   Specify the network (required)
-  --safe-address <address>   Specify the Safe multisig address (required)
-  --nonce <nonce>       Specify the transaction nonce (required)
-  --untrusted           Use untrusted endpoint (adds trusted=false parameter to API calls)
-  --offline             Calculate transaction hash offline without using the Safe API
-  --print-mst-calldata  Print the calldata for the entire multi-sig transaction
+  --network <network>          Specify the network (required)
+  --safe-address <address>     Specify the Safe multisig address (required)
+  --nonce <nonce>              Specify the transaction nonce (required)
+  --untrusted                  Use untrusted endpoint (adds trusted=false parameter to API calls)
+  --offline                    Calculate transaction hash offline without using the Safe API
+  --print-mst-calldata         Print the calldata for the entire multi-sig transaction
 
 Additional options for offline transaction mode:
-  --json-file <file>    Specify a JSON file containing transaction parameters
-  --to                  Target address (required in offline mode)
-  --value               Transaction value in wei (default: 0)
-  --data                Transaction data (default: 0x)
-  --operation           Operation type (default: 0)
-  --safe-tx-gas         SafeTxGas (default: 0)
-  --base-gas            BaseGas (default: 0)
-  --gas-price           GasPrice (default: 0)
-  --gas-token           Gas token address (default: 0x0000...0000)
-  --refund-receiver     Refund receiver address (default: 0x0000...0000)
+  --json-file <file>           Specify a JSON file containing transaction parameters
+  --to <address>               Target address (required in offline mode)
+  --value <wei>                Transaction value in wei (default: 0)
+  --data <hex>                 Transaction data (default: 0x)
+  --operation <type>           Operation type (default: 0)
+  --safe-tx-gas <gas>          SafeTxGas (default: 0)
+  --base-gas <gas>             BaseGas (default: 0)
+  --gas-price <price>          GasPrice (default: 0)
+  --gas-token <address>        Gas token address (default: 0x0000...0000)
+  --refund-receiver <address>  Refund receiver address (default: 0x0000...0000)
 
 Message Hash Commands:
-  ${SCRIPT_NAME} msg --network <network> --address <address> --message <file> [OPTIONS]
+  ${SCRIPT_NAME} msg --network <network> --safe-address <address> --input-file <file> [OPTIONS]
 
 Message Hash Options:
-  --network <network>   Specify the network (required)
-  --address <address>   Specify the Safe multisig address (required)
-  --input-file <file>   Specify the message file (required)
-  --offline             Calculate message hash without using the Safe API
+  --network <network>          Specify the network (required)
+  --safe-address <address>     Specify the Safe multisig address (required)
+  --input-file <file>          Specify the message file (required)
+  --offline                    Calculate message hash without using the Safe API
 
 Examples:
   # Online transaction hash calculation (trusted by default):
-  ${SCRIPT_NAME} tx --network ethereum --address 0x1234...5678 --nonce 42
+  ${SCRIPT_NAME} tx --network ethereum --safe-address 0x1234...5678 --nonce 42
 
   # Online transaction hash calculation with untrusted endpoint:
-  ${SCRIPT_NAME} tx --network ethereum --address 0x1234...5678 --nonce 42 --untrusted
+  ${SCRIPT_NAME} tx --network ethereum --safe-address 0x1234...5678 --nonce 42 --untrusted
 
   # Off-chain message hash calculation:
-  ${SCRIPT_NAME} msg --network ethereum --address 0x1234...5678 --message message.txt
+  ${SCRIPT_NAME} msg --network ethereum --safe-address 0x1234...5678 --input-file message.txt
 
   # Offline transaction hash calculation:
-  ${SCRIPT_NAME} tx --offline --network ethereum --address 0x1234...5678 --to 0x9876...5432 \\
+  ${SCRIPT_NAME} tx --offline --network ethereum --safe-address 0x1234...5678 --to 0x9876...5432 \\
      --data 0x095e...0001 --value 1000000000000000000 --nonce 42
 
 EOF
