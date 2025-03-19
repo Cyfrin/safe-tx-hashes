@@ -220,7 +220,7 @@ main() {
 }
 
 handle_msg_command () {
-    local network="" address="" input_file="" offline=false version="" eip712=false
+    local network="" address="" input_file="" offline=false version=""
 
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
@@ -229,7 +229,6 @@ handle_msg_command () {
             --network) network="$2"; shift 2 ;;
             --safe-address) address="$2"; shift 2 ;;
             --input-file) input_file="$2"; shift 2 ;;
-            --eip712) eip712=true; shift ;;
             --safe-version) version="$2"; shift 2 ;;
             *) echo "Unknown option: $1" >&2; usage ;;
         esac
@@ -265,7 +264,7 @@ handle_msg_command () {
         echo -e "${YELLOW}Warning: Using default version $DEFAULT_OFFLINE_SAFE_VERSION${RESET}" >&2
     fi
 
-    calculate_offchain_message_hashes "$network" "$chain_id" "$address" "$input_file" "$version" "$eip712"
+    calculate_offchain_message_hashes "$network" "$chain_id" "$address" "$input_file" "$version" 
     exit 0
 }
 
@@ -629,7 +628,6 @@ Message Hash Options:
   --network <network>   Specify the network (required)
   --address <address>   Specify the Safe multisig address (required)
   --input-file <file>   Specify the message file (required)
-  --eip712              Process the input file as EIP-712 structured data
   --offline             Calculate message hash without using the Safe API
 
 Examples:
@@ -641,9 +639,6 @@ Examples:
 
   # Off-chain message hash calculation:
   ${SCRIPT_NAME} msg --network ethereum --address 0x1234...5678 --message message.txt
-
-  # Off-chain EIP-712 structured message hash calculation:
-  ${SCRIPT_NAME} msg --network ethereum --address 0x1234...5678 --message message.json --eip712
 
   # Offline transaction hash calculation:
   ${SCRIPT_NAME} tx --offline --network ethereum --address 0x1234...5678 --to 0x9876...5432 \\
@@ -838,7 +833,7 @@ validate_version() {
 }
 
 # Utility function to calculate the domain hash.
-calculate_domain_hash() {
+calculate_safe_domain_hash() {
     local version=$1
     local domain_separator_typehash=$2
     local domain_hash_args=$3
@@ -888,7 +883,7 @@ calculate_hashes() {
     local clean_version=$(get_version "$version")
 
     # Calculate the domain hash.
-    local domain_hash=$(calculate_domain_hash "$version" "$domain_separator_typehash" "$domain_hash_args")
+    local domain_hash=$(calculate_safe_domain_hash "$version" "$domain_separator_typehash" "$domain_hash_args")
 
     # Calculate the data hash.
     # The dynamic value `bytes` is encoded as a `keccak256` hash of its content.
@@ -1030,7 +1025,6 @@ calculate_offchain_message_hashes() {
     local address=$3
     local input_file=$4
     local version=$5
-    local eip712=$6
 
     validate_input_file "$input_file"
 
@@ -1050,23 +1044,16 @@ calculate_offchain_message_hashes() {
     local domain_separator_typehash="$DOMAIN_SEPARATOR_TYPEHASH"
     local domain_hash_args="$domain_separator_typehash, $chain_id, $address"
     
-    if [[ "$eip712" == "true" ]]; then
-        # Process EIP-712 formatted message
-        # TODO
-        echo "hi"
-        
-    else
-        # Normalise line endings to `LF` (`\n`).
-        message_raw=$(echo "$message_raw" | tr -d "\r")
-        hashed_message=$(cast hash-message "$message_raw")
-        
-        # Calculate the message hash.
-        message_hash=$(chisel eval "keccak256(abi.encode(bytes32($SAFE_MSG_TYPEHASH), keccak256(abi.encode(bytes32($hashed_message)))))" |
-            awk '/Data:/ {gsub(/\x1b\[[0-9;]*m/, "", $3); print $3}')
-    fi
+    # Normalise line endings to `LF` (`\n`).
+    message_raw=$(echo "$message_raw" | tr -d "\r")
+    hashed_message=$(cast hash-message "$message_raw")
+    
+    # Calculate the message hash.
+    message_hash=$(chisel eval "keccak256(abi.encode(bytes32($SAFE_MSG_TYPEHASH), keccak256(abi.encode(bytes32($hashed_message)))))" |
+        awk '/Data:/ {gsub(/\x1b\[[0-9;]*m/, "", $3); print $3}')
 
     # Calculate the domain hash.
-    local domain_hash=$(calculate_domain_hash "$version" "$domain_separator_typehash" "$domain_hash_args")
+    local domain_hash=$(calculate_safe_domain_hash "$version" "$domain_separator_typehash" "$domain_hash_args")
 
     # Calculate the Safe message hash.
     local safe_msg_hash=$(chisel eval "keccak256(abi.encodePacked(bytes1(0x19), bytes1(0x01), bytes32($domain_hash), bytes32($message_hash)))" |
@@ -1084,12 +1071,7 @@ calculate_offchain_message_hashes() {
     print_header "Message Data"
     print_field "Multisig address" "$address"
     
-    if [[ "$eip712" == "true" ]]; then
-        print_field "EIP-712 Message" "$(jq -c '.message' "$input_file")"
-        print_field "Primary Type" "$primary_type"
-    else
-        print_field "Message" "$message_raw"
-    fi
+    print_field "Message" "$message_raw"
     
     print_header "Hashes"
     print_field "Raw message hash" "$hashed_message"

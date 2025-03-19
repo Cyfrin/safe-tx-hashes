@@ -9,7 +9,7 @@ RESET="\e[0m"
 TESTS_PASSED=0
 TESTS_FAILED=0
 
-# Utility function to print test results (unchanged)
+# Utility function to print test results
 print_test_result() {
     local test_name="$1"
     local result="$2"
