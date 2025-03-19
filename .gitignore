@@ -1,1 +1,4 @@
 notes.md
+node_modules
+.DS_Store
+reference/node_modules

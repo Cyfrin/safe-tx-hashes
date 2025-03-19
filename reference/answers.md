@@ -1,0 +1,21 @@
+# sample-batch-tx
+
+(sepolia)
+
+safe tx hash: 0xa90dfdceeb1abf346c2999527a7f869c307b1d1931c0d8a3d7819e03cbdf5517
+domain hash: 0x708a56f0d03ff6c322a52b593dd80a125c2c0cb4cb882ff7e9a25a245720e362
+message hash: 0xf5c58f7d34e4bef900fe37d9f6d81729c9d7b97781aebb3eb57953b46efdb518
+
+# sample-transaction
+
+(sepolia)
+
+safe tx hash: 0x55033b096ddc591fe60524bf767c914254aa91f24d611a0c5e9e27ec3f2720f0
+domain hash: 0x708a56f0d03ff6c322a52b593dd80a125c2c0cb4cb882ff7e9a25a245720e362
+message hash: 0x49cd09cde8e81a1d9f02b9edb968aaad8fa8453e3c7995a363a7a4f9e6cc62eb
+
+# sample-eip712-message
+
+(ethereum)
+
+message hash: 0x76ea36b85e6de361baa7cb21a064a2a985bd2ce751407345d408cee923e94a41
