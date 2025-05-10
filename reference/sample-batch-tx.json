@@ -1,0 +1,61 @@
+{
+    "version": "1.0",
+    "chainId": "11155111",
+    "createdAt": 1742405462589,
+    "meta": {
+        "name": "Transactions Batch",
+        "description": "",
+        "txBuilderVersion": "1.18.0",
+        "createdFromSafeAddress": "0x4087d2046A7435911fC26DCFac1c2Db26957Ab72",
+        "createdFromOwnerAddress": "",
+        "checksum": "0x6ab866efb75cf53b24ffd3cf0b8d87139eea7b47055973e0aa771a01de9a26f5"
+    },
+    "transactions": [
+        {
+            "to": "0xdd13E55209Fd76AfE204dBda4007C227904f0a81",
+            "value": "0",
+            "data": null,
+            "contractMethod": {
+                "inputs": [
+                    {
+                        "name": "guy",
+                        "type": "address"
+                    },
+                    {
+                        "name": "wad",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "approve",
+                "payable": false
+            },
+            "contractInputsValues": {
+                "guy": "0xdd13E55209Fd76AfE204dBda4007C227904f0a81",
+                "wad": "0"
+            }
+        },
+        {
+            "to": "0xdd13E55209Fd76AfE204dBda4007C227904f0a81",
+            "value": "0",
+            "data": null,
+            "contractMethod": {
+                "inputs": [
+                    {
+                        "name": "guy",
+                        "type": "address"
+                    },
+                    {
+                        "name": "wad",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "approve",
+                "payable": false
+            },
+            "contractInputsValues": {
+                "guy": "0xdd13E55209Fd76AfE204dBda4007C227904f0a81",
+                "wad": "1"
+            }
+        }
+    ]
+}
